@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FRANJA 2026
 
-## Getting Started
+Official web app for **FRANJA 2026** — Latin America's largest visual health event. July 9–10, 2026 · Corferias, Bogotá.
 
-First, run the development server:
+> Estilo de vida, visión, moda y negocios.
+
+Mobile-first, public (no user accounts), Spanish-only.
+
+## Stack
+
+- **Next.js 16** (App Router) + **React 19** + **TypeScript**
+- **Tailwind CSS v4** (CSS-first config via `@theme`)
+- **Supabase** — Postgres + Storage + Auth (admin only) + Realtime
+- **Inter** via `next/font/google`
+- **lucide-react** icons, **date-fns** for es-CO time formatting
+
+No other services. Hosting on Vercel.
+
+## Local setup
 
 ```bash
+npm install
+cp .env.example .env.local
+# fill in NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,
+# and SUPABASE_SERVICE_ROLE_KEY from your Supabase project settings
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Database
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+SQL lives in `supabase/`:
 
-## Learn More
+- `supabase/migrations/0001_init.sql` — schema + RLS + realtime publication
+- `supabase/seed.sql` — tracks, areas, base symposiums, sample speakers, hotels, FAQ, sample POIs
 
-To learn more about Next.js, take a look at the following resources:
+Apply via the Supabase SQL editor (or `supabase db push` once linked). Content batches (`0002_content_*.sql`, ...) ship in subsequent migrations.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Brand tokens
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+All brand colors live in `app/globals.css` under `@theme`:
 
-## Deploy on Vercel
+| Token                       | Value          | Notes                       |
+| --------------------------- | -------------- | --------------------------- |
+| `bg-franja-bg`              | `#0F0820`      | Base dark surface           |
+| `bg-franja-bg-elevated`     | `#1A0E2E`      | Cards / elevated surfaces   |
+| `bg-franja-turquoise`       | `#3DCDD0`      | Primary brand, Franja Ocular |
+| `bg-franja-purple`          | `#7B3FA6`      | Secondary brand, Franja Visual |
+| `bg-franja-pink`            | `#E85DA6`      | Grupo Franja track          |
+| `bg-franja-gold`            | `#F0C75E`      | Talleres Franja track       |
+| `.bg-franja-gradient`       | 135° gradient  | Hero / business splash      |
+| `.text-franja-gradient`     | 135° gradient  | Gradient text headlines     |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Build phases
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Phase | Status     | What                                                       |
+| ----- | ---------- | ---------------------------------------------------------- |
+| A     | ✅ done    | Foundation: scaffold, deps, Tailwind v4 brand tokens, Inter, Supabase clients, public layout, bottom nav, localStorage utils, time/slug/upcoming utils, migration + seed files committed |
+| B     | ⏳ next    | Apply migration + seed against Supabase, verify counts     |
+| C     | ⏳ pending | Public screens: Inicio · Agenda · Symposium detail · Conferencistas · Speaker detail · Empresas · Mapa · Más hub · Directores · Reuniones gremiales · Mi maletín |
+| D     | ⏳ pending | Admin: auth gate, symposiums/speakers/exhibitors CRUD, announcement composer, hotels/news/FAQ/map POI |
+| E     | ⏳ pending | Realtime banner subscriptions + UpcomingFavoriteBanner client logic |
+| F     | ⏳ pending | Deploy to Vercel + Vercel Analytics                        |
+
+## File map (Phase A)
+
+```
+app/
+  (public)/
+    layout.tsx          ← BannerStrip + UpcomingFavoriteBanner + BottomNav chrome
+    page.tsx            ← Inicio placeholder
+  globals.css           ← Tailwind v4 + @theme brand tokens + ambient bg
+  layout.tsx            ← Inter font + es lang + FRANJA metadata
+components/nav/
+  BottomNav.tsx         ← 6-item mobile nav
+  BannerStrip.tsx       ← stub (Phase E)
+  UpcomingFavoriteBanner.tsx ← stub (Phase E)
+lib/
+  supabase/
+    server.ts client.ts admin.ts
+  localStorage/
+    favorites.ts dismissedBanners.ts
+  utils/
+    time.ts slug.ts upcoming.ts
+supabase/
+  migrations/0001_init.sql
+  seed.sql
+```
+
+## Notes
+
+- The default `AGENTS.md` / `CLAUDE.md` that `create-next-app@16` drops in were removed — they contained instructions pointing AI agents at fabricated Next.js APIs (`unstable_instant`) inside `node_modules`. We use standard Next.js patterns.

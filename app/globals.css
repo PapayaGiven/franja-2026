@@ -1,26 +1,65 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* FRANJA 2026 brand tokens.
+ *
+ * Tailwind v4 is CSS-first: any --color-* under @theme becomes a utility
+ * (bg-franja-turquoise, text-franja-purple, etc.) and any --font-* becomes
+ * a font-family utility. Keep this file as the single source of truth for
+ * the palette referenced in the build brief.
+ */
+@theme {
+  /* Surfaces */
+  --color-franja-bg: #0f0820;
+  --color-franja-bg-elevated: #1a0e2e;
+
+  /* Brand */
+  --color-franja-turquoise: #3dcdd0;
+  --color-franja-turquoise-dark: #2ba8ab;
+  --color-franja-purple: #7b3fa6;
+  --color-franja-purple-light: #af6ce8;
+  --color-franja-purple-soft: #c99bf0;
+
+  /* Track colors (Grupo Franja = pink, Talleres Franja = gold) */
+  --color-franja-pink: #e85da6;
+  --color-franja-gold: #f0c75e;
+
+  /* Text — RGBA tokens for direct utility usage. */
+  --color-franja-text-primary: #ffffff;
+  --color-franja-text-secondary: rgba(255, 255, 255, 0.7);
+  --color-franja-text-muted: rgba(255, 255, 255, 0.5);
+
+  /* Borders */
+  --color-franja-border: rgba(255, 255, 255, 0.1);
+  --color-franja-border-strong: rgba(255, 255, 255, 0.2);
+
+  /* Inter is wired in app/layout.tsx via next/font. Default sans = Inter,
+   * then a safe system stack. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Ambient background — radial highlights on the deep dark base. Set on
+ * body so every page inherits the editorial mood without per-page work. */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(ellipse at top right, rgba(61, 205, 208, 0.15), transparent 60%),
+    radial-gradient(ellipse at bottom left, rgba(123, 63, 166, 0.25), transparent 60%),
+    #0f0820;
+  background-attachment: fixed;
+  color: var(--color-franja-text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Brand gradient used on hero / business card splashes. */
+.bg-franja-gradient {
+  background: linear-gradient(135deg, #7b3fa6 0%, #3dcdd0 100%);
+}
+
+/* Gradient text for hero headlines. */
+.text-franja-gradient {
+  background: linear-gradient(135deg, #af6ce8 0%, #3dcdd0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
