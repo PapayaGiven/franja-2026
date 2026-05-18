@@ -1,13 +1,15 @@
 /**
- * Magnitud numbers from Section 11 of the brief — hardcoded since the
- * 130+ / 120+ figures are PR copy, not DB-derived. If the actual seeded
- * counts diverge later we can swap to live counts via a server query.
+ * Magnitud del evento — actualizado tras content drop 0003:
+ *   26 simposios oficiales (incluye el nuevo "Mejora tu Vida con LC")
+ *   15 talleres (algunos por confirmar)
+ *   130+ conferencistas (~115 en DB, copy mantiene el "+" público)
+ *   89 empresas expositoras confirmadas
  */
 const STATS: { value: string; label: string; accent: "turquoise" | "purple" | "pink" | "gold" }[] = [
-  { value: "24", label: "Simposios académicos", accent: "turquoise" },
-  { value: "15", label: "Talleres", accent: "gold" },
+  { value: "26", label: "Simposios académicos", accent: "turquoise" },
+  { value: "15", label: "Talleres por confirmar", accent: "gold" },
   { value: "130+", label: "Conferencistas", accent: "purple" },
-  { value: "120+", label: "Empresas expositoras", accent: "pink" },
+  { value: "89", label: "Empresas expositoras", accent: "pink" },
 ];
 
 const ACCENT: Record<"turquoise" | "purple" | "pink" | "gold", string> = {
