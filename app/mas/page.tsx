@@ -24,7 +24,7 @@ interface HubLink {
 }
 
 const LINKS: HubLink[] = [
-  { href: "/speakers", label: "Conferencistas", hint: "130+ ponentes de todo el mundo", icon: Users },
+  { href: "/mas/conferencistas", label: "Conferencistas", hint: "130+ ponentes de todo el mundo", icon: Users },
   { href: "/mas/directores", label: "Directores", hint: "Quién lidera cada simposio", icon: UserCog },
   { href: "/mas/hoteles", label: "Hoteles", hint: "Alojamiento recomendado", icon: HotelIcon },
   { href: "/mas/noticias", label: "Noticias", hint: "Últimas novedades del evento", icon: Newspaper },

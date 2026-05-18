@@ -29,17 +29,23 @@ export default async function SymposiumDetailPage({
   params: Promise<Params>;
 }) {
   const { slug } = await params;
-  const [symposium, brands, categories] = await Promise.all([
-    getSymposiumBySlug(slug),
-    // Defer brands until we have an ID — listSymposiumBrands needs it.
-    // We'll re-fetch below after the symposium resolves.
-    Promise.resolve([]),
-    listCategories(),
-  ]);
+  // getSymposiumBySlug retries internally if `category_id` is missing
+  // from the schema. Catch a hard failure so we 404 instead of 500.
+  let symposium: Awaited<ReturnType<typeof getSymposiumBySlug>> | null = null;
+  try {
+    symposium = await getSymposiumBySlug(slug);
+  } catch {
+    symposium = null;
+  }
   if (!symposium) notFound();
 
-  const symposiumBrands = await listSymposiumBrands(symposium.id);
-  void brands; // placeholder declared above for parallelism clarity
+  // Brands + categories are best-effort enrichments. Both queries
+  // already swallow 0003-missing errors and return [], so this is just
+  // belt-and-suspenders.
+  const [symposiumBrands, categories] = await Promise.all([
+    listSymposiumBrands(symposium.id).catch(() => []),
+    listCategories().catch(() => []),
+  ]);
 
   const category = categories.find((c) => c.id === symposium.category_id) ?? null;
   const categoryColor = category?.color ?? symposium.track?.color ?? "#3DCDD0";

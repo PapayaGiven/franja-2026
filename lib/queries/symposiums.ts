@@ -56,21 +56,29 @@ export async function getSymposiumBySlug(
   slug: string,
 ): Promise<SymposiumDetail | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("symposiums")
-    .select(
-      `
-      ${WITH_REFS_SELECT},
-      category_id,
-      participants:symposium_speakers(
-        speaker_id, role, display_order,
-        speaker:speakers(id, slug, full_name, photo_url, credentials, country, country_code)
-      ),
-      conferences(id, symposium_id, title, start_time, duration_min, display_order, created_at)
-    `,
-    )
-    .eq("slug", slug)
-    .maybeSingle();
+  // First pass selects category_id (added in 0003). If that column
+  // doesn't exist in the connected DB yet, Postgres returns 42703 and
+  // we retry without it so the page still loads.
+  const baseQuery = (withCategory: boolean) =>
+    supabase
+      .from("symposiums")
+      .select(
+        `
+        ${WITH_REFS_SELECT}${withCategory ? ",\n        category_id" : ""},
+        participants:symposium_speakers(
+          speaker_id, role, display_order,
+          speaker:speakers(id, slug, full_name, photo_url, credentials, country, country_code)
+        ),
+        conferences(id, symposium_id, title, start_time, duration_min, display_order, created_at)
+      `,
+      )
+      .eq("slug", slug)
+      .maybeSingle();
+
+  let { data, error } = await baseQuery(true);
+  if (error && /category_id/i.test(error.message)) {
+    ({ data, error } = await baseQuery(false));
+  }
   if (error) throw error;
   if (!data) return null;
   return data as unknown as SymposiumDetail;
@@ -104,12 +112,15 @@ export async function listSimposiosByCategory(
   slug: string,
 ): Promise<SymposiumWithRefs[]> {
   const supabase = await createClient();
+  // Both reads can fail with 42P01 (relation does not exist) or 42703
+  // (column does not exist) in environments where 0003 hasn't shipped.
+  // Treat either as "no data" and let the caller show an empty state.
   const { data: cat, error: catErr } = await supabase
     .from("simposio_categories")
     .select("id")
     .eq("slug", slug)
     .maybeSingle();
-  if (catErr) throw catErr;
+  if (catErr) return [];
   if (!cat) return [];
 
   const { data, error } = await supabase
@@ -118,7 +129,7 @@ export async function listSimposiosByCategory(
     .eq("category_id", cat.id)
     .order("day", { ascending: true })
     .order("start_time", { ascending: true });
-  if (error) throw error;
+  if (error) return [];
   return (data ?? []) as unknown as SymposiumWithRefs[];
 }
 
@@ -137,7 +148,9 @@ export async function listSymposiumBrands(
     )
     .eq("symposium_id", symposiumId)
     .order("display_order", { ascending: true });
-  if (error) throw error;
+  // The detail page only renders the section when there are rows, so
+  // collapse any 0003-missing failures into an empty list.
+  if (error) return [];
   return (data ?? []) as SymposiumBrand[];
 }
 

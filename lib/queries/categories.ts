@@ -12,6 +12,8 @@ export async function listCategories(): Promise<SimposioCategory[]> {
     .from("simposio_categories")
     .select("id, slug, name, description, color, display_order, created_at")
     .order("display_order", { ascending: true });
-  if (error) throw error;
+  // Collapse "table doesn't exist yet" into an empty list so callers
+  // render their own empty state instead of 500'ing.
+  if (error) return [];
   return (data ?? []) as SimposioCategory[];
 }
