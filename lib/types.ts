@@ -116,6 +116,30 @@ export interface Conference {
   created_at: string;
 }
 
+// Categoría oficial de simposio (Clínicos / Negocios / Técnicos /
+// Académicos). Source: simposio_categories — added in migration 0003.
+export interface SimposioCategory {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  color: string | null;
+  display_order: number;
+  created_at: string;
+}
+
+// Marcas / fabricantes participantes de un simposio. Decorativas
+// (logos no clickeables). Source: symposium_brands — migration 0003.
+export interface SymposiumBrand {
+  id: string;
+  symposium_id: string;
+  brand_name: string;
+  brand_slug: string;
+  logo_url: string | null;
+  display_order: number;
+  created_at: string;
+}
+
 // ── Exhibitors ──────────────────────────────────────────────────────
 
 export interface ExhibitorCategory {

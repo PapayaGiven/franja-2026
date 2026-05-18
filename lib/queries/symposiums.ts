@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import type {
   Symposium,
+  SymposiumBrand,
   SymposiumDetail,
   SymposiumWithRefs,
 } from "@/lib/types";
@@ -86,6 +87,52 @@ export async function listSymposiumsWithRole(
     .order("start_time");
   if (error) throw error;
   return (data ?? []) as unknown as Symposium[];
+}
+
+/**
+ * Symposiums in a given category (Clínicos / Negocios / Técnicos /
+ * Académicos). Joins through simposio_categories.slug → category_id so
+ * callers can pass the slug directly. Powers /simposios.
+ */
+export async function listSimposiosByCategory(
+  slug: string,
+): Promise<SymposiumWithRefs[]> {
+  const supabase = await createClient();
+  const { data: cat, error: catErr } = await supabase
+    .from("simposio_categories")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (catErr) throw catErr;
+  if (!cat) return [];
+
+  const { data, error } = await supabase
+    .from("symposiums")
+    .select(WITH_REFS_SELECT)
+    .eq("category_id", cat.id)
+    .order("day", { ascending: true })
+    .order("start_time", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as unknown as SymposiumWithRefs[];
+}
+
+/**
+ * Marcas / fabricantes participantes de un simposio (logos decorativos).
+ * Source: symposium_brands — migration 0003.
+ */
+export async function listSymposiumBrands(
+  symposiumId: string,
+): Promise<SymposiumBrand[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("symposium_brands")
+    .select(
+      "id, symposium_id, brand_name, brand_slug, logo_url, display_order, created_at",
+    )
+    .eq("symposium_id", symposiumId)
+    .order("display_order", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as SymposiumBrand[];
 }
 
 /**
