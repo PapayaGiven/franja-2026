@@ -77,7 +77,7 @@ export async function listSymposiumsForSpeaker(
     .select(
       `role, symposium:symposiums(
         id, slug, kind, generic_category, official_name, subtitle, description,
-        track_id, area_id, day, start_time, end_time,
+        track_id, area_id, category_id, day, start_time, end_time,
         is_exclusive, exclusive_org, sponsor_brand,
         created_at, updated_at
       )`,

@@ -2,20 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, CalendarDays, Users, Store, Map, MoreHorizontal } from "lucide-react";
+import { Home, CalendarDays, GraduationCap, Store, Map, MoreHorizontal } from "lucide-react";
 
 /**
- * Mobile-first bottom navigation. Six top-level destinations per the
- * brief: Inicio · Agenda · Conferencistas · Negocios · Mapa · Más.
+ * Mobile-first bottom navigation. Six top-level destinations:
+ * Inicio · Agenda · Simposios · Empresas · Mapa · Más.
  *
  * Active state matches the current pathname's first segment so deep
- * pages like `/agenda/[slug]` still highlight "Agenda".
+ * pages like `/agenda/[slug]` still highlight their parent tab.
+ * Conferencistas + Directores moved into /mas.
  */
 const ITEMS = [
   { href: "/", label: "Inicio", icon: Home, segment: "" },
   { href: "/agenda", label: "Agenda", icon: CalendarDays, segment: "agenda" },
-  { href: "/speakers", label: "Ponentes", icon: Users, segment: "speakers" },
-  { href: "/negocios", label: "Negocios", icon: Store, segment: "negocios" },
+  { href: "/simposios", label: "Simposios", icon: GraduationCap, segment: "simposios" },
+  { href: "/empresas", label: "Empresas", icon: Store, segment: "empresas" },
   { href: "/mapa", label: "Mapa", icon: Map, segment: "mapa" },
   { href: "/mas", label: "Más", icon: MoreHorizontal, segment: "mas" },
 ] as const;

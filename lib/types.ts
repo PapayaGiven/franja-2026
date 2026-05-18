@@ -77,6 +77,7 @@ export interface Symposium {
   is_exclusive: boolean;
   exclusive_org: string | null;
   sponsor_brand: string | null;
+  category_id: string | null;
   created_at: string;
   updated_at: string;
 }
