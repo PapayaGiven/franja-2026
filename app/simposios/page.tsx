@@ -1,28 +1,43 @@
 import Link from "next/link";
 import { listCategories } from "@/lib/queries/categories";
 import { listSimposiosByCategory } from "@/lib/queries/symposiums";
-import type { SymposiumWithRefs } from "@/lib/types";
+import type { SimposioCategory, SymposiumWithRefs } from "@/lib/types";
 
 /**
  * Simposios — los 26 simposios oficiales agrupados por las 4 categorías
  * (Clínicos · Negocios · Técnicos · Académicos). El color de la pildora
- * del grupo viene de simposio_categories.color (0003).
+ * del grupo viene de simposio_categories.color (migración 0003).
  *
- * Hacemos 1 + N queries (una para categorías, una por categoría) en
- * paralelo. Esto evita seleccionar `category_id` en la query global de
- * symposiums — que rompe el home y el agenda si la migración 0003 no
- * está aplicada en algún entorno.
- *
- * Cada tarjeta enlaza a /agenda/[slug].
+ * Toda fetch va envuelta en try/catch: si la migración 0003 no está
+ * aplicada en un entorno (o RLS bloquea), la página renderiza un estado
+ * vacío amigable en lugar de devolver 500.
  */
+async function safeCategories(): Promise<SimposioCategory[]> {
+  try {
+    return await listCategories();
+  } catch {
+    return [];
+  }
+}
+
+async function safeByCategory(slug: string): Promise<SymposiumWithRefs[]> {
+  try {
+    return await listSimposiosByCategory(slug);
+  } catch {
+    return [];
+  }
+}
+
 export default async function SimposiosPage() {
-  const categories = await listCategories();
+  const categories = await safeCategories();
   const buckets = await Promise.all(
     categories.map(async (cat) => ({
       cat,
-      items: await listSimposiosByCategory(cat.slug),
+      items: await safeByCategory(cat.slug),
     })),
   );
+
+  const hasContent = buckets.some((b) => b.items.length > 0);
 
   return (
     <main className="mx-auto max-w-screen-sm px-4 py-6 space-y-8">
@@ -35,11 +50,24 @@ export default async function SimposiosPage() {
         </p>
       </header>
 
+      {!hasContent && (
+        <div className="rounded-2xl border border-franja-border bg-white/5 p-6 text-sm text-franja-text-muted backdrop-blur-sm">
+          Estamos terminando de cargar los simposios. Vuelve en un momento.
+        </div>
+      )}
+
       {buckets.map(({ cat, items }) => {
         if (items.length === 0) return null;
         const color = cat.color ?? "#3DCDD0";
         return (
-          <CategoryBlock key={cat.id} color={color} slug={cat.slug} name={cat.name} description={cat.description} items={items} />
+          <CategoryBlock
+            key={cat.id}
+            color={color}
+            slug={cat.slug}
+            name={cat.name}
+            description={cat.description}
+            items={items}
+          />
         );
       })}
     </main>
