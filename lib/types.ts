@@ -77,7 +77,9 @@ export interface Symposium {
   is_exclusive: boolean;
   exclusive_org: string | null;
   sponsor_brand: string | null;
-  category_id: string | null;
+  // Source: simposio_categories (migration 0003). Optional because the
+  // base listSymposiums query stays narrow and may omit it.
+  category_id?: string | null;
   created_at: string;
   updated_at: string;
 }

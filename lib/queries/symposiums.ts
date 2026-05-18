@@ -15,9 +15,14 @@ import type {
  * columns we actually need to keep the wire payload small.
  */
 
+// Keep this list aligned with 0001_init.sql. `category_id` from 0003 is
+// intentionally selected only by getSymposiumBySlug and the new
+// listSimposiosByCategory — the broad listSymposiums query (powers
+// home + /agenda) stays narrow to keep the wire payload small and to
+// avoid coupling those screens to migrations that haven't shipped yet.
 const BASE_COLUMNS = `
   id, slug, kind, generic_category, official_name, subtitle, description,
-  track_id, area_id, category_id, day, start_time, end_time,
+  track_id, area_id, day, start_time, end_time,
   is_exclusive, exclusive_org, sponsor_brand,
   created_at, updated_at
 `;
@@ -56,6 +61,7 @@ export async function getSymposiumBySlug(
     .select(
       `
       ${WITH_REFS_SELECT},
+      category_id,
       participants:symposium_speakers(
         speaker_id, role, display_order,
         speaker:speakers(id, slug, full_name, photo_url, credentials, country, country_code)
@@ -108,7 +114,7 @@ export async function listSimposiosByCategory(
 
   const { data, error } = await supabase
     .from("symposiums")
-    .select(WITH_REFS_SELECT)
+    .select(`${WITH_REFS_SELECT}, category_id`)
     .eq("category_id", cat.id)
     .order("day", { ascending: true })
     .order("start_time", { ascending: true });
