@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin/guard";
+import type { UploadResult } from "@/lib/admin/upload";
 
 const BUCKET = "speakers";
 const MAX_BYTES = 8 * 1024 * 1024; // 8 MB — generous; PNGs of headshots are tiny.
@@ -12,10 +13,6 @@ const ALLOWED_TYPES = new Set([
   "image/webp",
   "image/avif",
 ]);
-
-export type UploadResult =
-  | { ok: true; url: string }
-  | { ok: false; error: string };
 
 /**
  * Upload a single speaker photo to Supabase Storage and write the
