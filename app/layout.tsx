@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import { BannerStrip } from "@/components/nav/BannerStrip";
 import { UpcomingFavoriteBanner } from "@/components/nav/UpcomingFavoriteBanner";
@@ -26,28 +27,39 @@ export const metadata: Metadata = {
 
 /**
  * Root layout — the public chrome (banner strip, upcoming-favorite
- * banner, bottom nav) lives here directly rather than in a
- * `(public)` route group. The route group setup hit a 404-at-runtime
- * regression on Next 16 + Vercel even though the build emitted the
- * routes, so we flattened to the canonical structure.
+ * banner, bottom nav) lives here directly rather than in a `(public)`
+ * route group. The route group setup hit a 404-at-runtime regression on
+ * Next 16 + Vercel even though the build emitted the routes, so we
+ * flattened to the canonical structure.
  *
- * If we later add /admin we'll wrap it in its own route group or use
- * a per-route layout to bypass this chrome.
+ * /admin/* still flows through this layout (Next layouts always wrap
+ * their children) so we read `x-pathname` injected by middleware and
+ * skip the public chrome + the narrow mobile container on those routes.
+ * The admin shell brings its own chrome via `app/admin/layout.tsx`.
  */
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = (await headers()).get("x-pathname") ?? "";
+  const isAdmin = pathname.startsWith("/admin");
+
   return (
     <html lang="es" className={`${inter.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
-        <BannerStrip />
-        <UpcomingFavoriteBanner />
-        <main className="mx-auto w-full max-w-screen-sm flex-1 px-4 pb-24 pt-6">
-          {children}
-        </main>
-        <BottomNav />
+        {isAdmin ? (
+          children
+        ) : (
+          <>
+            <BannerStrip />
+            <UpcomingFavoriteBanner />
+            <main className="mx-auto w-full max-w-screen-sm flex-1 px-4 pb-24 pt-6">
+              {children}
+            </main>
+            <BottomNav />
+          </>
+        )}
       </body>
     </html>
   );
