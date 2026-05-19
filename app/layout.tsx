@@ -17,11 +17,25 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "FRANJA 2026",
   description: "Estilo de vida, visión, moda y negocios",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "https://assets.unlayer.com/projects/237/1779221268527-Imagen-02%20(1).png",
+    shortcut: "https://assets.unlayer.com/projects/237/1779221268527-Imagen-02%20(1).png",
+    apple: "https://assets.unlayer.com/projects/237/1779221268527-Imagen-02%20(1).png",
+  },
   openGraph: {
     title: "FRANJA 2026",
     description: "Estilo de vida, visión, moda y negocios",
     type: "website",
     locale: "es_CO",
+    images: [
+      {
+        url: "https://assets.unlayer.com/projects/237/1779221268527-Imagen-02%20(1).png",
+        width: 512,
+        height: 512,
+        alt: "FRANJA 2026",
+      },
+    ],
   },
 };
 
