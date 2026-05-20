@@ -19,18 +19,16 @@ const ALLOWED_TYPES = new Set([
 const SPONSOR_TIERS = new Set(["platinum", "gold", "silver"]);
 
 /**
- * Upload a logo to Storage and write the public URL back to
- * `exhibitors.logo_url`. Same shape as the speakers photo action so
- * the generic BulkAssetUploader can drive both.
+ * Internal: validate + push file to Storage + update logo_url. Shared
+ * by uploadExhibitorLogoAction (drag-and-drop on the edit page) and
+ * createExhibitorAction (single-flow new page that creates + uploads
+ * in one submit). Callers are responsible for requireAdmin().
  */
-export async function uploadExhibitorLogoAction(
+async function _uploadExhibitorLogo(
   slug: string,
-  formData: FormData,
+  file: File,
 ): Promise<UploadResult> {
-  await requireAdmin();
-
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
+  if (file.size === 0) {
     return { ok: false, error: "Archivo vacío o ausente." };
   }
   if (file.size > MAX_BYTES) {
@@ -41,14 +39,6 @@ export async function uploadExhibitorLogoAction(
   }
 
   const supabase = createAdminClient();
-
-  const { data: exhibitor, error: lookupErr } = await supabase
-    .from("exhibitors")
-    .select("id, slug")
-    .eq("slug", slug)
-    .maybeSingle();
-  if (lookupErr) return { ok: false, error: lookupErr.message };
-  if (!exhibitor) return { ok: false, error: `Empresa no existe: ${slug}` };
 
   const ext = extensionFor(file);
   const path = `${slug}/${Date.now()}.${ext}`;
@@ -76,6 +66,34 @@ export async function uploadExhibitorLogoAction(
   revalidatePath(`/empresas/${slug}`);
 
   return { ok: true, url };
+}
+
+/**
+ * Upload a logo to Storage and write the public URL back to
+ * `exhibitors.logo_url`. Same shape as the speakers photo action so
+ * the generic BulkAssetUploader can drive both.
+ */
+export async function uploadExhibitorLogoAction(
+  slug: string,
+  formData: FormData,
+): Promise<UploadResult> {
+  await requireAdmin();
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { ok: false, error: "Archivo vacío o ausente." };
+  }
+
+  const supabase = createAdminClient();
+  const { data: exhibitor, error: lookupErr } = await supabase
+    .from("exhibitors")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (lookupErr) return { ok: false, error: lookupErr.message };
+  if (!exhibitor) return { ok: false, error: `Empresa no existe: ${slug}` };
+
+  return _uploadExhibitorLogo(slug, file);
 }
 
 /**
@@ -144,9 +162,15 @@ export async function updateExhibitorAction(
 }
 
 /**
- * Create a new exhibitor. Slug is required and must be unique. On
- * success we redirect into the edit page so the admin can upload the
- * logo + fill the rest without a manual jump.
+ * Create a new exhibitor. Slug is required (or derived from name) and
+ * must be unique. If a logo file is included in FormData we upload it
+ * in the same action so the admin doesn't need a second screen — the
+ * common case is "I have the row + the logo in hand, do it once".
+ *
+ * Always redirects to the edit page on success so the admin can
+ * verify and fill in fields they skipped. The redirect target adds
+ * `?created=1` for the toast and `?logoError=...` if only the logo
+ * upload failed (the row is still created).
  */
 export async function createExhibitorAction(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -164,7 +188,6 @@ export async function createExhibitorAction(formData: FormData): Promise<void> {
 
   if (!name) redirect("/admin/exhibitors/new?error=name");
   if (!slug) {
-    // If the admin left slug blank, derive it from name.
     slug = slugify(name);
     if (!slug) redirect("/admin/exhibitors/new?error=slug");
   }
@@ -172,8 +195,6 @@ export async function createExhibitorAction(formData: FormData): Promise<void> {
     redirect("/admin/exhibitors/new?error=slug-format");
   }
 
-  // Pre-flight uniqueness check so we can return a nice message
-  // instead of bubbling a Postgres 23505.
   const { data: existing, error: lookupErr } = await supabase
     .from("exhibitors")
     .select("slug")
@@ -212,10 +233,23 @@ export async function createExhibitorAction(formData: FormData): Promise<void> {
     redirect(`/admin/exhibitors/new?error=${encodeURIComponent(error.message)}`);
   }
 
+  // Optional inline logo upload — only attempted if the admin attached
+  // a file to the form. Failure here doesn't roll back the row; we
+  // surface a non-fatal `logoError` in the redirect so the admin can
+  // retry the upload from the edit page.
+  const logoFile = formData.get("logo");
+  let logoError: string | null = null;
+  if (logoFile instanceof File && logoFile.size > 0) {
+    const result = await _uploadExhibitorLogo(slug, logoFile);
+    if (!result.ok) logoError = result.error;
+  }
+
   revalidatePath("/admin/exhibitors");
   revalidatePath("/empresas");
 
-  redirect(`/admin/exhibitors/${slug}?created=1`);
+  const params = new URLSearchParams({ created: "1" });
+  if (logoError) params.set("logoError", logoError);
+  redirect(`/admin/exhibitors/${slug}?${params.toString()}`);
 }
 
 function extensionFor(file: File): string {

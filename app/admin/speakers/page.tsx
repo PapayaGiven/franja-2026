@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SpeakerAvatar } from "@/components/speakers/SpeakerAvatar";
 import { BulkPhotoUploader } from "./BulkPhotoUploader";
@@ -84,13 +84,22 @@ export default async function AdminSpeakersPage({
           </p>
         </div>
 
-        <BulkPhotoUploader
-          speakers={allSpeakers.map((s) => ({
-            id: s.id,
-            slug: s.slug,
-            name: s.full_name,
-          }))}
-        />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/speakers/new"
+            className="inline-flex items-center gap-2 rounded-md border border-franja-turquoise/60 bg-franja-turquoise/10 px-3 py-1.5 text-xs font-semibold text-franja-turquoise transition hover:bg-franja-turquoise/20"
+          >
+            <Plus size={12} strokeWidth={2.5} />
+            Agregar nuevo speaker
+          </Link>
+          <BulkPhotoUploader
+            speakers={allSpeakers.map((s) => ({
+              id: s.id,
+              slug: s.slug,
+              name: s.full_name,
+            }))}
+          />
+        </div>
       </header>
 
       <SearchForm initialValue={q} />

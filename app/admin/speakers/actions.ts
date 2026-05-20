@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin/guard";
 import type { UploadResult } from "@/lib/admin/upload";
@@ -15,42 +16,25 @@ const ALLOWED_TYPES = new Set([
 ]);
 
 /**
- * Upload a single speaker photo to Supabase Storage and write the
- * public URL back to `speakers.photo_url`. Used by both the individual
- * edit form's drag-and-drop zone and the bulk uploader modal.
+ * Internal: validate + push file to Storage + update photo_url.
+ * Caller is responsible for requireAdmin() and for confirming the
+ * speaker exists. Shared by uploadSpeakerPhotoAction (drag-and-drop on
+ * edit page; bulk modal) and createSpeakerAction (new page single-flow).
  *
- * The object key is `${slug}/${timestamp}.${ext}` so each upload gets a
+ * Object key is `${slug}/${timestamp}.${ext}` so each upload gets a
  * fresh URL — public-bucket URLs are CDN-cached and we never want to
  * serve a stale photo after the admin replaces one.
  */
-export async function uploadSpeakerPhotoAction(
+async function _uploadSpeakerPhoto(
   slug: string,
-  formData: FormData,
+  file: File,
 ): Promise<UploadResult> {
-  await requireAdmin();
-
-  const file = formData.get("file");
-  if (!(file instanceof File) || file.size === 0) {
-    return { ok: false, error: "Archivo vacío o ausente." };
-  }
-  if (file.size > MAX_BYTES) {
-    return { ok: false, error: "Archivo > 8 MB." };
-  }
-  if (!ALLOWED_TYPES.has(file.type)) {
+  if (file.size === 0) return { ok: false, error: "Archivo vacío o ausente." };
+  if (file.size > MAX_BYTES) return { ok: false, error: "Archivo > 8 MB." };
+  if (!ALLOWED_TYPES.has(file.type))
     return { ok: false, error: `Tipo no soportado: ${file.type}` };
-  }
 
   const supabase = createAdminClient();
-
-  // Confirm the speaker exists before we waste a storage write.
-  const { data: speaker, error: lookupErr } = await supabase
-    .from("speakers")
-    .select("id, slug")
-    .eq("slug", slug)
-    .maybeSingle();
-  if (lookupErr) return { ok: false, error: lookupErr.message };
-  if (!speaker) return { ok: false, error: `Speaker no existe: ${slug}` };
-
   const ext = extensionFor(file);
   const path = `${slug}/${Date.now()}.${ext}`;
   const { error: uploadErr } = await supabase.storage
@@ -73,11 +57,114 @@ export async function uploadSpeakerPhotoAction(
 
   revalidatePath("/admin/speakers");
   revalidatePath(`/admin/speakers/${slug}`);
-  // Public-facing pages that render this photo:
   revalidatePath("/conferencistas");
   revalidatePath(`/conferencistas/${slug}`);
 
   return { ok: true, url };
+}
+
+/**
+ * Upload a single speaker photo. Used by the edit-form drag-and-drop
+ * zone and the bulk-upload modal.
+ */
+export async function uploadSpeakerPhotoAction(
+  slug: string,
+  formData: FormData,
+): Promise<UploadResult> {
+  await requireAdmin();
+
+  const file = formData.get("file");
+  if (!(file instanceof File)) {
+    return { ok: false, error: "Archivo vacío o ausente." };
+  }
+
+  const supabase = createAdminClient();
+  const { data: speaker, error: lookupErr } = await supabase
+    .from("speakers")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (lookupErr) return { ok: false, error: lookupErr.message };
+  if (!speaker) return { ok: false, error: `Speaker no existe: ${slug}` };
+
+  return _uploadSpeakerPhoto(slug, file);
+}
+
+/**
+ * Create a new speaker. Same single-flow pattern as exhibitors: if a
+ * photo file is attached we upload it after the row is inserted. On
+ * success we redirect to the edit page with `?created=1` (and
+ * `?photoError=...` if only the photo failed). full_name is required;
+ * slug is required or derived from full_name.
+ */
+export async function createSpeakerAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const supabase = createAdminClient();
+
+  const text = (key: string): string | null => {
+    const v = formData.get(key);
+    if (typeof v !== "string") return null;
+    const t = v.trim();
+    return t.length === 0 ? null : t;
+  };
+
+  const fullName = text("full_name");
+  let slug = text("slug");
+
+  if (!fullName) redirect("/admin/speakers/new?error=name");
+  if (!slug) {
+    slug = slugify(fullName);
+    if (!slug) redirect("/admin/speakers/new?error=slug");
+  }
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+    redirect("/admin/speakers/new?error=slug-format");
+  }
+
+  const { data: existing, error: lookupErr } = await supabase
+    .from("speakers")
+    .select("slug")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (lookupErr) {
+    redirect(`/admin/speakers/new?error=${encodeURIComponent(lookupErr.message)}`);
+  }
+  if (existing) {
+    redirect(`/admin/speakers/new?error=slug-taken&slug=${slug}`);
+  }
+
+  const insert: Record<string, unknown> = {
+    slug,
+    full_name: fullName,
+    credentials: text("credentials"),
+    country: text("country"),
+    country_code: text("country_code"),
+    specialty: text("specialty"),
+    institution: text("institution"),
+    bio: text("bio"),
+    website: text("website"),
+    linkedin: text("linkedin"),
+    instagram: text("instagram"),
+    is_featured: formData.get("is_featured") === "on",
+  };
+
+  const { error } = await supabase.from("speakers").insert(insert);
+  if (error) {
+    redirect(`/admin/speakers/new?error=${encodeURIComponent(error.message)}`);
+  }
+
+  const photoFile = formData.get("photo");
+  let photoError: string | null = null;
+  if (photoFile instanceof File && photoFile.size > 0) {
+    const result = await _uploadSpeakerPhoto(slug, photoFile);
+    if (!result.ok) photoError = result.error;
+  }
+
+  revalidatePath("/admin/speakers");
+  revalidatePath("/conferencistas");
+
+  const params = new URLSearchParams({ created: "1" });
+  if (photoError) params.set("photoError", photoError);
+  redirect(`/admin/speakers/${slug}?${params.toString()}`);
 }
 
 function extensionFor(file: File): string {
@@ -88,4 +175,13 @@ function extensionFor(file: File): string {
   const fromName = file.name.split(".").pop();
   if (fromName && /^[a-z0-9]+$/i.test(fromName)) return fromName.toLowerCase();
   return "bin";
+}
+
+function slugify(input: string): string {
+  return input
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
 }

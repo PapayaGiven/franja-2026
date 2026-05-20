@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { ChevronLeft, AlertCircle, Info } from "lucide-react";
+import { ChevronLeft, AlertCircle } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { ExhibitorCategory } from "@/lib/types";
 import { createExhibitorAction } from "../actions";
+import { DeferredLogoPicker } from "./DeferredLogoPicker";
 
 const SPONSOR_TIERS = [
   { value: "platinum", label: "Platinum" },
@@ -56,7 +57,15 @@ export default async function NewExhibitorPage({
         </div>
       )}
 
-      <form action={createExhibitorAction} className="space-y-5">
+      <form
+        action={createExhibitorAction}
+        className="grid grid-cols-1 gap-6 lg:grid-cols-[240px_1fr]"
+      >
+        <aside className="space-y-3">
+          <DeferredLogoPicker />
+        </aside>
+
+        <div className="space-y-5">
         <FieldRow>
           <Field label="Nombre" name="name" required>
             <Input name="name" required autoFocus />
@@ -145,11 +154,6 @@ export default async function NewExhibitorPage({
           </Field>
         </div>
 
-        <p className="flex items-center gap-2 text-xs text-franja-text-muted">
-          <Info size={12} />
-          El logo se sube en la siguiente pantalla.
-        </p>
-
         <div className="flex items-center justify-end gap-2 border-t border-franja-border pt-4">
           <Link
             href="/admin/exhibitors"
@@ -163,6 +167,7 @@ export default async function NewExhibitorPage({
           >
             Crear empresa
           </button>
+        </div>
         </div>
       </form>
     </div>

@@ -23,10 +23,15 @@ export default async function ExhibitorEditPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ saved?: string; created?: string; error?: string }>;
+  searchParams: Promise<{
+    saved?: string;
+    created?: string;
+    error?: string;
+    logoError?: string;
+  }>;
 }) {
   const { slug } = await params;
-  const { saved, created, error } = await searchParams;
+  const { saved, created, error, logoError } = await searchParams;
 
   const supabase = createAdminClient();
 
@@ -65,8 +70,14 @@ export default async function ExhibitorEditPage({
         <p className="text-xs text-franja-text-muted">slug: {exhibitor.slug}</p>
       </header>
 
-      {created === "1" && (
-        <Toast tone="success" message="Empresa creada. Subí su logo y completa los datos abajo." />
+      {created === "1" && !logoError && (
+        <Toast tone="success" message="Empresa creada. Verifica los datos abajo." />
+      )}
+      {created === "1" && logoError && (
+        <Toast
+          tone="error"
+          message={`Empresa creada pero falló la subida del logo: ${decodeURIComponent(logoError)}. Probá de nuevo desde el cuadro de logo.`}
+        />
       )}
       {saved === "1" && <Toast tone="success" message="Cambios guardados." />}
       {error && <Toast tone="error" message={decodeMessage(error)} />}
