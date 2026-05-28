@@ -68,9 +68,18 @@ export default async function RootLayout({
           <>
             <BannerStrip />
             <UpcomingFavoriteBanner />
-            <main className="mx-auto w-full max-w-screen-sm flex-1 px-4 pb-24 pt-6">
-              {children}
+            <main className="mx-auto w-full max-w-screen-sm flex-1 px-4 pb-32 pt-6">
+            {children}
             </main>
+            <a
+              href="https://franjavisual.co/registrate-2026/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="fixed bottom-20 left-1/2 z-40 -translate-x-1/2 rounded-full bg-franja-turquoise px-5 py-3 text-sm font-semibold text-franja-bg shadow-lg shadow-franja-turquoise/25 transition hover:scale-105 hover:bg-white"
+            >
+              Comprar tiquetes
+            </a>
+
             <BottomNav />
           </>
         )}

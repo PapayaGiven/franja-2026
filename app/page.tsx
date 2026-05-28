@@ -7,7 +7,7 @@ import { QuickActions } from "@/components/home/QuickActions";
 
 /**
  * Inicio — public landing. Server Component: fetches symposiums once
- * for the "Próximas conferencias" preview. Phase E will swap the
+ * for the "Conferencias" preview. Phase E will swap the
  * preview slice for live "starts within X min" logic when the event
  * is in progress.
  */
