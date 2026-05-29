@@ -1,21 +1,39 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2, ChevronLeft } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin/guard";
-import { updateSymposiumAction } from "./actions";
+import {
+  addSymposiumParticipantAction,
+  removeSymposiumParticipantAction,
+  updateSymposiumAction,
+} from "./actions";
 
 export default async function EditSimposioPage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ error?: string; saved?: string; created?: string; slug?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    saved?: string;
+    created?: string;
+    slug?: string;
+    participant_added?: string;
+    participant_removed?: string;
+  }>;
 }) {
   await requireAdmin();
 
   const { slug } = await params;
-  const { error, saved, created, slug: collidingSlug } = await searchParams;
+  const {
+    error,
+    saved,
+    created,
+    slug: collidingSlug,
+    participant_added,
+    participant_removed,
+  } = await searchParams;
 
   const supabase = createAdminClient();
 
@@ -25,11 +43,7 @@ export default async function EditSimposioPage({
     { data: areas },
     { data: categories },
   ] = await Promise.all([
-    supabase
-      .from("symposiums")
-      .select("*")
-      .eq("slug", slug)
-      .maybeSingle(),
+    supabase.from("symposiums").select("*").eq("slug", slug).maybeSingle(),
     supabase.from("tracks").select("id, name").order("name"),
     supabase.from("areas").select("id, name").order("name"),
     supabase.from("simposio_categories").select("id, name").order("name"),
@@ -39,7 +53,41 @@ export default async function EditSimposioPage({
     notFound();
   }
 
+  const [{ data: participants }, { data: allSpeakers }] = await Promise.all([
+    supabase
+      .from("symposium_speakers")
+      .select(
+        `
+        symposium_id,
+        speaker_id,
+        role,
+        display_order,
+        speaker:speakers (
+          id,
+          slug,
+          full_name,
+          credentials,
+          country,
+          specialty
+        )
+      `
+      )
+      .eq("symposium_id", symposium.id)
+      .order("role", { ascending: true })
+      .order("display_order", { ascending: true }),
+
+    supabase
+      .from("speakers")
+      .select("id, slug, full_name, credentials, country, specialty")
+      .order("full_name", { ascending: true }),
+  ]);
+
   const updateWithSlug = updateSymposiumAction.bind(null, slug);
+  const addParticipantWithSlug = addSymposiumParticipantAction.bind(null, slug);
+  const removeParticipantWithSlug = removeSymposiumParticipantAction.bind(
+    null,
+    slug
+  );
 
   return (
     <div className="space-y-6">
@@ -79,6 +127,26 @@ export default async function EditSimposioPage({
         >
           <CheckCircle2 size={14} />
           Cambios guardados correctamente.
+        </div>
+      )}
+
+      {participant_added && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-md border border-franja-turquoise/40 bg-franja-turquoise/10 px-3 py-2 text-sm text-franja-turquoise"
+        >
+          <CheckCircle2 size={14} />
+          Participante agregado correctamente.
+        </div>
+      )}
+
+      {participant_removed && (
+        <div
+          role="status"
+          className="flex items-center gap-2 rounded-md border border-franja-turquoise/40 bg-franja-turquoise/10 px-3 py-2 text-sm text-franja-turquoise"
+        >
+          <CheckCircle2 size={14} />
+          Participante eliminado correctamente.
         </div>
       )}
 
@@ -195,10 +263,7 @@ export default async function EditSimposioPage({
           </Field>
 
           <Field label="Categoría oficial" name="category_id">
-            <Select
-              name="category_id"
-              defaultValue={symposium.category_id ?? ""}
-            >
+            <Select name="category_id" defaultValue={symposium.category_id ?? ""}>
               <option value="">Sin categoría</option>
               {(categories ?? []).map((category) => (
                 <option key={category.id} value={category.id}>
@@ -259,6 +324,169 @@ export default async function EditSimposioPage({
           </div>
         </div>
       </form>
+
+      <section className="space-y-4 rounded-xl border border-franja-border bg-franja-bg-elevated p-4">
+        <div>
+          <h2 className="text-base font-medium text-franja-text-primary">
+            Participantes y directores
+          </h2>
+          <p className="text-sm text-franja-text-muted">
+            Agrega o elimina directores, conferencistas y moderadores asociados a este simposio.
+          </p>
+        </div>
+
+        <form
+          action={addParticipantWithSlug}
+          className="grid grid-cols-1 gap-3 rounded-lg border border-franja-border bg-franja-bg/50 p-3 md:grid-cols-[1fr_180px_120px_auto]"
+        >
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium uppercase tracking-wider text-franja-text-muted">
+              Persona
+            </label>
+            <select
+              name="speaker_id"
+              required
+              className="w-full rounded-md border border-franja-border bg-franja-bg/60 px-3 py-2 text-sm text-franja-text-primary outline-none transition focus:border-franja-turquoise"
+            >
+              <option value="">Seleccionar persona</option>
+              {(allSpeakers ?? []).map((speaker) => (
+                <option key={speaker.id} value={speaker.id}>
+                  {speaker.full_name}
+                  {speaker.credentials ? ` — ${speaker.credentials}` : ""}
+                  {speaker.country ? ` (${speaker.country})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium uppercase tracking-wider text-franja-text-muted">
+              Rol
+            </label>
+            <select
+              name="role"
+              defaultValue="speaker"
+              className="w-full rounded-md border border-franja-border bg-franja-bg/60 px-3 py-2 text-sm text-franja-text-primary outline-none transition focus:border-franja-turquoise"
+            >
+              <option value="speaker">Conferencista</option>
+              <option value="director">Director</option>
+              <option value="moderator">Moderador</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium uppercase tracking-wider text-franja-text-muted">
+              Orden
+            </label>
+            <input
+              type="number"
+              name="display_order"
+              defaultValue={0}
+              min={0}
+              className="w-full rounded-md border border-franja-border bg-franja-bg/60 px-3 py-2 text-sm text-franja-text-primary outline-none transition focus:border-franja-turquoise"
+            />
+          </div>
+
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="w-full rounded-md bg-franja-turquoise px-4 py-2 text-xs font-semibold text-franja-bg transition hover:bg-franja-turquoise-dark"
+            >
+              Agregar
+            </button>
+          </div>
+        </form>
+
+        <div className="overflow-hidden rounded-lg border border-franja-border">
+          <table className="min-w-full divide-y divide-franja-border text-sm">
+            <thead className="bg-white/5">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-franja-text-muted">
+                  Persona
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-franja-text-muted">
+                  Rol
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-franja-text-muted">
+                  Orden
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium uppercase tracking-wider text-franja-text-muted">
+                  Acción
+                </th>
+              </tr>
+            </thead>
+
+            <tbody className="divide-y divide-franja-border">
+              {(participants ?? []).map((participant) => {
+                const speaker = Array.isArray(participant.speaker)
+                  ? participant.speaker[0]
+                  : participant.speaker;
+
+                return (
+                  <tr
+                    key={`${participant.symposium_id}-${participant.speaker_id}-${participant.role}`}
+                  >
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-franja-text-primary">
+                        {speaker?.full_name ?? "Persona sin nombre"}
+                      </p>
+                      <p className="text-xs text-franja-text-muted">
+                        {speaker?.credentials ?? "Sin credenciales"}
+                        {speaker?.country ? ` · ${speaker.country}` : ""}
+                      </p>
+                    </td>
+
+                    <td className="px-4 py-3 text-franja-text-muted">
+                      {roleLabel(participant.role)}
+                    </td>
+
+                    <td className="px-4 py-3 text-franja-text-muted">
+                      {participant.display_order ?? 0}
+                    </td>
+
+                    <td className="px-4 py-3 text-right">
+                      <form action={removeParticipantWithSlug}>
+                        <input
+                          type="hidden"
+                          name="symposium_id"
+                          value={participant.symposium_id}
+                        />
+                        <input
+                          type="hidden"
+                          name="speaker_id"
+                          value={participant.speaker_id}
+                        />
+                        <input
+                          type="hidden"
+                          name="role"
+                          value={participant.role}
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-md border border-franja-pink/40 px-2.5 py-1.5 text-xs text-franja-pink transition hover:bg-franja-pink/10"
+                        >
+                          Quitar
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {(participants ?? []).length === 0 && (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-4 py-8 text-center text-sm text-franja-text-muted"
+                  >
+                    Este simposio todavía no tiene participantes asociados.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
@@ -272,6 +500,16 @@ function decodeMessage(raw: string, slug?: string): string {
     return slug
       ? `Ya existe un simposio con el slug "${slug}". Prueba con otro.`
       : "Ese slug ya está en uso.";
+  if (raw === "missing-speaker")
+    return "Debes seleccionar una persona para agregarla al simposio.";
+  if (raw === "invalid-role")
+    return "El rol seleccionado no es válido.";
+  if (raw === "participant-exists")
+    return "Esa persona ya está asociada a este simposio con ese mismo rol.";
+  if (raw === "missing-relation")
+    return "No se pudo identificar la relación que quieres eliminar.";
+  if (raw === "symposium-not-found")
+    return "No se encontró el simposio.";
   try {
     return decodeURIComponent(raw);
   } catch {
@@ -282,6 +520,13 @@ function decodeMessage(raw: string, slug?: string): string {
 function toTimeInput(time: string | null) {
   if (!time) return "";
   return time.slice(0, 5);
+}
+
+function roleLabel(role: string | null) {
+  if (role === "director") return "Director";
+  if (role === "moderator") return "Moderador";
+  if (role === "speaker") return "Conferencista";
+  return role ?? "—";
 }
 
 function FieldRow({ children }: { children: React.ReactNode }) {
