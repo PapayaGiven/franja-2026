@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Speaker, Symposium, SymposiumRole } from "@/lib/types";
-
+import type { Speaker, SymposiumRole, SymposiumWithRefs } from "@/lib/types";
 /**
  * Speaker queries — the /speakers list, individual speaker profile, and
  * the Directores sub-page filter ("speakers with director role").
@@ -23,13 +22,15 @@ export async function listSpeakers(): Promise<Speaker[]> {
     .select(BASE_COLUMNS)
     .order("is_featured", { ascending: false })
     .order("full_name", { ascending: true });
+
   if (error) throw error;
+
   return (data ?? []) as Speaker[];
 }
 
 /**
  * Speakers that appear as `director` in at least one symposium_speakers
- * row. Powers /mas/directores. Uses a foreign-table inner-join filter so
+ * row. Powers /directores. Uses a foreign-table inner-join filter so
  * Postgres dedupes naturally.
  */
 export async function listDirectors(): Promise<Speaker[]> {
@@ -39,9 +40,12 @@ export async function listDirectors(): Promise<Speaker[]> {
     .select(`${BASE_COLUMNS}, symposium_speakers!inner(role)`)
     .eq("symposium_speakers.role", "director")
     .order("full_name", { ascending: true });
+
   if (error) throw error;
+
   // De-dup just in case the join surfaces a speaker multiple times.
   const seen = new Set<string>();
+
   return (data ?? []).filter((s) => {
     if (seen.has(s.id)) return false;
     seen.add(s.id);
@@ -59,36 +63,50 @@ export async function getSpeakerBySlug(slug: string): Promise<Speaker | null> {
     .select(BASE_COLUMNS)
     .eq("slug", slug)
     .maybeSingle();
+
   if (error) throw error;
+
   return (data as Speaker) ?? null;
 }
 
 /**
- * Every symposium this speaker participates in, with their role. Used on
- * the speaker profile page to render "Dirige", "Modera", "Habla en"
- * sections.
+ * Every symposium this speaker participates in, with their role.
+ * Used on the speaker profile page to render "Dirige", "Modera",
+ * "Habla en" sections.
+ *
+ * Includes the related track so the profile can show the room/salón.
  */
 export async function listSymposiumsForSpeaker(
   speakerId: string,
-): Promise<Array<Symposium & { role: SymposiumRole }>> {
+): Promise<Array<SymposiumWithRefs & { role: SymposiumRole }>> {
   const supabase = await createClient();
+
   const { data, error } = await supabase
     .from("symposium_speakers")
     .select(
       `role, symposium:symposiums(
         id, slug, kind, generic_category, official_name, subtitle, description,
         track_id, area_id, day, start_time, end_time,
+        track:tracks(slug, name, color),
         is_exclusive, exclusive_org, sponsor_brand,
         created_at, updated_at
       )`,
     )
     .eq("speaker_id", speakerId);
+
   if (error) throw error;
 
-  type Row = { role: SymposiumRole; symposium: Symposium | null };
+  type Row = {
+    role: SymposiumRole;
+    symposium: SymposiumWithRefs | null;
+  };
+
   return ((data ?? []) as unknown as Row[])
     .filter((r) => r.symposium !== null)
-    .map((r) => ({ ...(r.symposium as Symposium), role: r.role }))
+    .map((r) => ({
+      ...(r.symposium as SymposiumWithRefs),
+      role: r.role,
+    }))
     .sort((a, b) => {
       if (a.day !== b.day) return a.day.localeCompare(b.day);
       return a.start_time.localeCompare(b.start_time);

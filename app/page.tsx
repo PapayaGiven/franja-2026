@@ -19,9 +19,9 @@ export default async function InicioPage() {
     <div className="space-y-8">
       <HeroCard />
       <StatsGrid />
+      <QuickActions />
       <UpcomingSessions sessions={upcoming} />
       <BusinessHourCard />
-      <QuickActions />
     </div>
   );
 }

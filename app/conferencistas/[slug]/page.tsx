@@ -41,7 +41,7 @@ export default async function SpeakerDetailPage({
   return (
     <main className="mx-auto max-w-screen-sm px-4 py-6 space-y-6">
       <Link
-        href="/mas/conferencistas"
+        href="/conferencistas"
         className="inline-flex items-center gap-1.5 text-xs text-franja-text-muted hover:text-franja-text-primary transition"
       >
         <ChevronLeft size={14} />
@@ -150,8 +150,15 @@ export default async function SpeakerDetailPage({
                           {sess.official_name}
                         </p>
                         <p className="text-[11px] text-franja-text-muted mt-1">
-                          {formatLongDate(sess.day)} · {formatClock(sess.start_time)}
+                          {formatLongDate(sess.day)} · {formatClock(sess.start_time)} a{" "}
+                          {formatClock(sess.end_time)}
                         </p>
+
+                        {sess.track?.name ? (
+                          <p className="mt-1 text-[11px] font-medium text-franja-turquoise">
+                            Salón {sess.track.name}
+                          </p>
+                        ) : null}
                       </Link>
                     </li>
                   ))}
