@@ -119,7 +119,6 @@ export default async function AdminHomePage() {
           missingLabel="sin descripción"
           accent="pink"
           href="/admin/simposios"
-          comingSoon
         />
         <ActiveStatCard
           title="Banners activos"
@@ -154,7 +153,6 @@ export default async function AdminHomePage() {
             href="/admin/simposios"
             title="Gestionar simposios"
             description="Nombres, descripciones, horarios y speakers"
-            comingSoon
           />
           <QuickLink
             href="/admin/banners"
