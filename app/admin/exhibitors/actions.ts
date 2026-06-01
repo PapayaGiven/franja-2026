@@ -257,6 +257,44 @@ export async function createExhibitorAction(formData: FormData): Promise<void> {
   redirect(`/admin/exhibitors/${slug}?${params.toString()}`);
 }
 
+/**
+ * Delete an exhibitor from the admin and public app.
+ * Requires the admin to type DELETE in the confirmation field to avoid
+ * accidental deletions.
+ */
+export async function deleteExhibitorAction(
+  slug: string,
+  formData: FormData,
+): Promise<void> {
+  await requireAdmin();
+
+  const confirm = formData.get("confirm");
+
+  if (confirm !== "DELETE") {
+    redirect(`/admin/exhibitors/${slug}?error=delete-confirm`);
+  }
+
+  const supabase = createAdminClient();
+
+  const { error } = await supabase
+    .from("exhibitors")
+    .delete()
+    .eq("slug", slug);
+
+  if (error) {
+    redirect(
+      `/admin/exhibitors/${slug}?error=${encodeURIComponent(error.message)}`,
+    );
+  }
+
+  revalidatePath("/admin/exhibitors");
+  revalidatePath(`/admin/exhibitors/${slug}`);
+  revalidatePath("/empresas");
+  revalidatePath(`/empresas/${slug}`);
+
+  redirect("/admin/exhibitors?deleted=1");
+}
+
 function extensionFor(file: File): string {
   const fromMime = file.type.split("/")[1];
 

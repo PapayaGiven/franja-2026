@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, CheckCircle2, AlertCircle } from "lucide-react";
+import { ChevronLeft, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Exhibitor, ExhibitorCategory } from "@/lib/types";
 import { LogoUploader } from "./LogoUploader";
-import { updateExhibitorAction } from "./actions";
+import { deleteExhibitorAction, updateExhibitorAction } from "./actions";
 
 const SELECT = `
   id, slug, name, logo_url, country, booth_number, "pabellón",
@@ -45,6 +45,7 @@ export default async function ExhibitorEditPage({
   const categories = (categoriesRes.data ?? []) as ExhibitorCategory[];
 
   const action = updateExhibitorAction.bind(null, slug);
+  const deleteAction = deleteExhibitorAction.bind(null, slug);
 
   return (
     <div className="space-y-6">
@@ -187,12 +188,46 @@ export default async function ExhibitorEditPage({
           </div>
         </form>
       </div>
+
+      <section className="rounded-xl border border-franja-pink/40 bg-franja-pink/10 p-4">
+        <div className="space-y-1">
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-franja-pink">
+            <Trash2 size={14} />
+            Eliminar empresa
+          </h2>
+
+          <p className="text-xs text-franja-text-muted">
+            Esta acción eliminará la empresa del admin y de la vista pública.
+            Para confirmar, escribe <strong>DELETE</strong>.
+          </p>
+        </div>
+
+        <form action={deleteAction} className="mt-3 flex flex-col gap-3 sm:flex-row">
+          <input
+            type="text"
+            name="confirm"
+            placeholder="DELETE"
+            className="rounded-md border border-franja-border bg-franja-bg/60 px-3 py-2 text-sm text-franja-text-primary outline-none transition focus:border-franja-pink"
+          />
+
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-franja-pink/60 px-4 py-2 text-xs font-semibold text-franja-pink transition hover:bg-franja-pink/10"
+          >
+            <Trash2 size={12} />
+            Eliminar empresa
+          </button>
+        </form>
+      </section>
     </div>
   );
 }
 
 function decodeMessage(raw: string): string {
   if (raw === "name") return "El nombre es obligatorio.";
+  if (raw === "delete-confirm") {
+    return "Para eliminar la empresa debes escribir DELETE exactamente.";
+  }
 
   try {
     return decodeURIComponent(raw);
