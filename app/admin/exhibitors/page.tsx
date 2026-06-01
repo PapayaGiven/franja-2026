@@ -9,7 +9,13 @@ const PAGE_SIZE = 50;
 
 type Row = Pick<
   Exhibitor,
-  "id" | "slug" | "name" | "logo_url" | "country" | "booth_number" | "is_sponsor" | "sponsor_tier" | "category_id"
+  | "id"
+  | "slug"
+  | "name"
+  | "logo_url"
+  | "country"
+  | "booth_number"
+  | "category_id"
 >;
 
 /**
@@ -33,11 +39,9 @@ export default async function AdminExhibitorsPage({
 
   let builder = supabase
     .from("exhibitors")
-    .select(
-      "id, slug, name, logo_url, country, booth_number, is_sponsor, sponsor_tier, category_id",
-      { count: "exact" },
-    )
-    .order("is_sponsor", { ascending: false })
+    .select("id, slug, name, logo_url, country, booth_number, category_id", {
+      count: "exact",
+    })
     .order("name", { ascending: true })
     .range(from, to);
 
@@ -48,19 +52,21 @@ export default async function AdminExhibitorsPage({
     );
   }
 
-  const [{ data, count, error }, allExhibitorsRes, categoriesRes] = await Promise.all([
-    builder,
-    // For the bulk uploader: full id/slug/name list so the matcher
-    // can map filename → exhibitor and the dropdown is populated.
-    supabase
-      .from("exhibitors")
-      .select("id, slug, name")
-      .order("name", { ascending: true }),
-    supabase
-      .from("exhibitor_categories")
-      .select("id, slug, name, display_order")
-      .order("display_order"),
-  ]);
+  const [{ data, count, error }, allExhibitorsRes, categoriesRes] =
+    await Promise.all([
+      builder,
+      // For the bulk uploader: full id/slug/name list so the matcher
+      // can map filename → exhibitor and the dropdown is populated.
+      supabase
+        .from("exhibitors")
+        .select("id, slug, name")
+        .order("name", { ascending: true }),
+      supabase
+        .from("exhibitor_categories")
+        .select("id, slug, name, display_order")
+        .order("display_order"),
+    ]);
+
   if (error) throw error;
   if (allExhibitorsRes.error) throw allExhibitorsRes.error;
   if (categoriesRes.error) throw categoriesRes.error;
@@ -81,7 +87,9 @@ export default async function AdminExhibitorsPage({
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
-          <h1 className="text-xl font-medium text-franja-text-primary">Empresas</h1>
+          <h1 className="text-xl font-medium text-franja-text-primary">
+            Empresas
+          </h1>
           <p className="text-sm text-franja-text-muted">
             {total} {total === 1 ? "empresa" : "empresas"}
             {q ? ` que coinciden con "${q}"` : ""}.
@@ -96,6 +104,7 @@ export default async function AdminExhibitorsPage({
             <Plus size={12} strokeWidth={2.5} />
             Agregar nueva empresa
           </Link>
+
           <BulkLogoUploader exhibitors={allExhibitors} />
         </div>
       </header>
@@ -113,6 +122,7 @@ export default async function AdminExhibitorsPage({
               <th className="px-4 py-2 font-medium text-right">Acción</th>
             </tr>
           </thead>
+
           <tbody>
             {rows.length === 0 && (
               <tr>
@@ -126,6 +136,7 @@ export default async function AdminExhibitorsPage({
                 </td>
               </tr>
             )}
+
             {rows.map((e) => (
               <tr
                 key={e.id}
@@ -134,14 +145,10 @@ export default async function AdminExhibitorsPage({
                 <td className="px-4 py-2.5">
                   <div className="flex items-center gap-3">
                     <ExhibitorLogo logoUrl={e.logo_url} name={e.name} size={32} />
+
                     <div className="min-w-0">
                       <p className="truncate text-sm text-franja-text-primary">
                         {e.name}
-                        {e.is_sponsor && e.sponsor_tier && (
-                          <span className="ml-2 align-middle rounded-full bg-franja-gold/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-franja-gold">
-                            {e.sponsor_tier}
-                          </span>
-                        )}
                       </p>
                       <p className="truncate text-xs text-franja-text-muted">
                         {e.slug}
@@ -149,15 +156,19 @@ export default async function AdminExhibitorsPage({
                     </div>
                   </div>
                 </td>
+
                 <td className="px-4 py-2.5 text-xs text-franja-text-muted">
                   {e.booth_number ?? "—"}
                 </td>
+
                 <td className="px-4 py-2.5 text-xs text-franja-text-muted">
                   {e.country ?? "—"}
                 </td>
+
                 <td className="px-4 py-2.5 text-xs text-franja-text-muted">
                   {e.category_id ? categoryName.get(e.category_id) ?? "—" : "—"}
                 </td>
+
                 <td className="px-4 py-2.5 text-right">
                   <Link
                     href={`/admin/exhibitors/${e.slug}`}
@@ -197,6 +208,7 @@ function SearchForm({ initialValue }: { initialValue: string }) {
           size={14}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-franja-text-muted"
         />
+
         <input
           type="search"
           name="q"
@@ -205,6 +217,7 @@ function SearchForm({ initialValue }: { initialValue: string }) {
           className="w-full rounded-md border border-franja-border bg-franja-bg/60 py-2 pl-9 pr-3 text-sm text-franja-text-primary outline-none transition focus:border-franja-turquoise"
         />
       </div>
+
       <button
         type="submit"
         className="rounded-md border border-franja-border bg-franja-bg/60 px-3 py-2 text-xs text-franja-text-primary transition hover:border-franja-turquoise/60"
@@ -233,13 +246,18 @@ function Pagination({
   hasNext: boolean;
 }) {
   if (total === 0) return null;
+
   const buildHref = (n: number) => {
     const params = new URLSearchParams();
+
     if (q) params.set("q", q);
     if (n > 1) params.set("page", String(n));
+
     const qs = params.toString();
+
     return qs ? `/admin/exhibitors?${qs}` : "/admin/exhibitors";
   };
+
   const start = (page - 1) * pageSize + 1;
   const end = Math.min(page * pageSize, total);
 
@@ -248,6 +266,7 @@ function Pagination({
       <p>
         {start}–{end} de {total}
       </p>
+
       <div className="flex items-center gap-1">
         {hasPrev ? (
           <Link
@@ -263,9 +282,11 @@ function Pagination({
             Anterior
           </span>
         )}
+
         <span className="px-2 text-franja-text-muted">
           Pág. {page} / {totalPages}
         </span>
+
         {hasNext ? (
           <Link
             href={buildHref(page + 1)}

@@ -5,12 +5,6 @@ import type { ExhibitorCategory } from "@/lib/types";
 import { createExhibitorAction } from "../actions";
 import { DeferredLogoPicker } from "./DeferredLogoPicker";
 
-const SPONSOR_TIERS = [
-  { value: "platinum", label: "Platinum" },
-  { value: "gold", label: "Gold" },
-  { value: "silver", label: "Silver" },
-] as const;
-
 export default async function NewExhibitorPage({
   searchParams,
 }: {
@@ -19,11 +13,14 @@ export default async function NewExhibitorPage({
   const { error, slug: collidingSlug } = await searchParams;
 
   const supabase = createAdminClient();
+
   const { data: categoriesData, error: catErr } = await supabase
     .from("exhibitor_categories")
     .select("id, slug, name, display_order")
     .order("display_order");
+
   if (catErr) throw catErr;
+
   const categories = (categoriesData ?? []) as ExhibitorCategory[];
 
   return (
@@ -43,7 +40,7 @@ export default async function NewExhibitorPage({
           Nueva empresa
         </h1>
         <p className="text-sm text-franja-text-muted">
-          Después de crearla podrás subir su logo desde la página de edición.
+          Puedes crear la empresa con sus datos principales y logo.
         </p>
       </header>
 
@@ -66,108 +63,92 @@ export default async function NewExhibitorPage({
         </aside>
 
         <div className="space-y-5">
-        <FieldRow>
-          <Field label="Nombre" name="name" required>
-            <Input name="name" required autoFocus />
-          </Field>
-          <Field
-            label="Slug"
-            name="slug"
-            hint="kebab-case, sin acentos. Si lo dejás vacío, se deriva del nombre."
-          >
-            <Input
+          <FieldRow>
+            <Field label="Nombre" name="name" required>
+              <Input name="name" required autoFocus />
+            </Field>
+
+            <Field
+              label="Slug"
               name="slug"
-              pattern="[a-z0-9]([a-z0-9-]*[a-z0-9])?"
-              defaultValue={
-                error === "slug-taken" && collidingSlug ? collidingSlug : ""
-              }
-            />
-          </Field>
-        </FieldRow>
+              hint="kebab-case, sin acentos. Si lo dejas vacío, se deriva del nombre."
+            >
+              <Input
+                name="slug"
+                pattern="[a-z0-9]([a-z0-9-]*[a-z0-9])?"
+                defaultValue={
+                  error === "slug-taken" && collidingSlug ? collidingSlug : ""
+                }
+              />
+            </Field>
+          </FieldRow>
 
-        <FieldRow>
-          <Field label="País" name="country">
-            <Input name="country" />
-          </Field>
-          <Field label="Stand (booth)" name="booth_number">
-            <Input name="booth_number" placeholder="Ej: 47, A, 113-116" />
-          </Field>
-        </FieldRow>
+          <FieldRow>
+            <Field label="País" name="country">
+              <Input name="country" />
+            </Field>
 
-        <FieldRow>
-          <Field label="Pabellón" name="pabellon">
-            <Input name="pabellon" />
-          </Field>
-          <Field label="Categoría" name="category_id">
-            <Select name="category_id" defaultValue="">
-              <option value="">— Sin categoría —</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </FieldRow>
+            <Field label="Stand (booth)" name="booth_number">
+              <Input name="booth_number" placeholder="Ej: 47, A, 113-116" />
+            </Field>
+          </FieldRow>
 
-        <Field label="Descripción" name="description">
-          <Textarea name="description" rows={4} />
-        </Field>
+          <FieldRow>
+            <Field label="Pabellón" name="pabellon">
+              <Input name="pabellon" />
+            </Field>
 
-        <FieldRow>
-          <Field label="Sitio web" name="website">
-            <Input type="url" name="website" placeholder="https://" />
-          </Field>
-          <Field label="WhatsApp" name="whatsapp">
-            <Input name="whatsapp" />
-          </Field>
-        </FieldRow>
+            <Field label="Categoría" name="category_id">
+              <Select name="category_id" defaultValue="">
+                <option value="">— Sin categoría —</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </FieldRow>
 
-        <FieldRow>
-          <Field label="Email" name="email">
-            <Input type="email" name="email" />
+          <Field label="Descripción" name="description">
+            <Textarea name="description" rows={4} />
           </Field>
-          <Field label="Instagram" name="instagram">
-            <Input name="instagram" />
-          </Field>
-        </FieldRow>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <label className="flex items-center gap-2 text-sm text-franja-text-primary">
-            <input
-              type="checkbox"
-              name="is_sponsor"
-              className="h-4 w-4 rounded border-franja-border bg-franja-bg accent-franja-turquoise"
-            />
-            Es patrocinador
-          </label>
+          <FieldRow>
+            <Field label="Sitio web" name="website">
+              <Input type="url" name="website" placeholder="https://" />
+            </Field>
 
-          <Field label="Sponsor tier" name="sponsor_tier">
-            <Select name="sponsor_tier" defaultValue="">
-              <option value="">— Ninguno —</option>
-              {SPONSOR_TIERS.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </Select>
-          </Field>
-        </div>
+            <Field label="WhatsApp" name="whatsapp">
+              <Input name="whatsapp" />
+            </Field>
+          </FieldRow>
 
-        <div className="flex items-center justify-end gap-2 border-t border-franja-border pt-4">
-          <Link
-            href="/admin/exhibitors"
-            className="rounded-md border border-franja-border px-3 py-2 text-xs text-franja-text-muted transition hover:border-franja-border-strong hover:text-franja-text-primary"
-          >
-            Cancelar
-          </Link>
-          <button
-            type="submit"
-            className="rounded-md bg-franja-turquoise px-4 py-2 text-xs font-semibold text-franja-bg transition hover:bg-franja-turquoise-dark"
-          >
-            Crear empresa
-          </button>
-        </div>
+          <FieldRow>
+            <Field label="Email" name="email">
+              <Input type="email" name="email" />
+            </Field>
+
+            <Field label="Instagram" name="instagram">
+              <Input name="instagram" />
+            </Field>
+          </FieldRow>
+
+          <div className="flex items-center justify-end gap-2 border-t border-franja-border pt-4">
+            <Link
+              href="/admin/exhibitors"
+              className="rounded-md border border-franja-border px-3 py-2 text-xs text-franja-text-muted transition hover:border-franja-border-strong hover:text-franja-text-primary"
+            >
+              Cancelar
+            </Link>
+
+            <button
+              type="submit"
+              className="rounded-md bg-franja-turquoise px-4 py-2 text-xs font-semibold text-franja-bg transition hover:bg-franja-turquoise-dark"
+            >
+              Crear empresa
+            </button>
+          </div>
         </div>
       </form>
     </div>
@@ -176,14 +157,18 @@ export default async function NewExhibitorPage({
 
 function decodeMessage(raw: string, slug?: string): string {
   if (raw === "name") return "El nombre es obligatorio.";
-  if (raw === "slug") return "El slug es obligatorio o el nombre no produce uno válido.";
-  if (raw === "slug-format")
+  if (raw === "slug") {
+    return "El slug es obligatorio o el nombre no produce uno válido.";
+  }
+  if (raw === "slug-format") {
     return "El slug solo puede contener letras minúsculas, números y guiones.";
-  if (raw === "slug-taken")
+  }
+  if (raw === "slug-taken") {
     return slug
-      ? `Ya existe una empresa con el slug "${slug}". Probá con otro.`
+      ? `Ya existe una empresa con el slug "${slug}". Prueba con otro.`
       : "Ese slug ya está en uso.";
-  if (raw === "tier") return "Sponsor tier debe ser platinum, gold o silver.";
+  }
+
   try {
     return decodeURIComponent(raw);
   } catch {

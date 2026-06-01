@@ -9,14 +9,8 @@ import { updateExhibitorAction } from "./actions";
 const SELECT = `
   id, slug, name, logo_url, country, booth_number, "pabellón",
   category_id, description, website, whatsapp, email, instagram,
-  is_sponsor, sponsor_tier, map_x, map_y, created_at, updated_at
+  map_x, map_y, created_at, updated_at
 `;
-
-const SPONSOR_TIERS = [
-  { value: "platinum", label: "Platinum" },
-  { value: "gold", label: "Gold" },
-  { value: "silver", label: "Silver" },
-] as const;
 
 export default async function ExhibitorEditPage({
   params,
@@ -42,6 +36,7 @@ export default async function ExhibitorEditPage({
       .select("id, slug, name, display_order")
       .order("display_order"),
   ]);
+
   if (fetchErr) throw fetchErr;
   if (!data) notFound();
   if (categoriesRes.error) throw categoriesRes.error;
@@ -73,12 +68,16 @@ export default async function ExhibitorEditPage({
       {created === "1" && !logoError && (
         <Toast tone="success" message="Empresa creada. Verifica los datos abajo." />
       )}
+
       {created === "1" && logoError && (
         <Toast
           tone="error"
-          message={`Empresa creada pero falló la subida del logo: ${decodeURIComponent(logoError)}. Probá de nuevo desde el cuadro de logo.`}
+          message={`Empresa creada pero falló la subida del logo: ${decodeURIComponent(
+            logoError,
+          )}. Probá de nuevo desde el cuadro de logo.`}
         />
       )}
+
       {saved === "1" && <Toast tone="success" message="Cambios guardados." />}
       {error && <Toast tone="error" message={decodeMessage(error)} />}
 
@@ -96,6 +95,7 @@ export default async function ExhibitorEditPage({
             <Field label="Nombre" name="name" required>
               <Input name="name" defaultValue={exhibitor.name} required />
             </Field>
+
             <Field label="País" name="country">
               <Input name="country" defaultValue={exhibitor.country ?? ""} />
             </Field>
@@ -109,6 +109,7 @@ export default async function ExhibitorEditPage({
                 placeholder="Ej: 47, A, 113-116"
               />
             </Field>
+
             <Field label="Pabellón" name="pabellon">
               <Input
                 name="pabellon"
@@ -145,7 +146,12 @@ export default async function ExhibitorEditPage({
                 placeholder="https://"
               />
             </Field>
-            <Field label="WhatsApp" name="whatsapp" hint="Formato internacional: +57 300…">
+
+            <Field
+              label="WhatsApp"
+              name="whatsapp"
+              hint="Formato internacional: +57 300…"
+            >
               <Input name="whatsapp" defaultValue={exhibitor.whatsapp ?? ""} />
             </Field>
           </FieldRow>
@@ -158,36 +164,11 @@ export default async function ExhibitorEditPage({
                 defaultValue={exhibitor.email ?? ""}
               />
             </Field>
+
             <Field label="Instagram" name="instagram" hint="@usuario o URL">
               <Input name="instagram" defaultValue={exhibitor.instagram ?? ""} />
             </Field>
           </FieldRow>
-
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <label className="flex items-center gap-2 text-sm text-franja-text-primary">
-              <input
-                type="checkbox"
-                name="is_sponsor"
-                defaultChecked={exhibitor.is_sponsor}
-                className="h-4 w-4 rounded border-franja-border bg-franja-bg accent-franja-turquoise"
-              />
-              Es patrocinador
-            </label>
-
-            <Field label="Sponsor tier" name="sponsor_tier">
-              <Select
-                name="sponsor_tier"
-                defaultValue={exhibitor.sponsor_tier ?? ""}
-              >
-                <option value="">— Ninguno —</option>
-                {SPONSOR_TIERS.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
 
           <div className="flex items-center justify-end gap-2 border-t border-franja-border pt-4">
             <Link
@@ -196,6 +177,7 @@ export default async function ExhibitorEditPage({
             >
               Cancelar
             </Link>
+
             <button
               type="submit"
               className="rounded-md bg-franja-turquoise px-4 py-2 text-xs font-semibold text-franja-bg transition hover:bg-franja-turquoise-dark"
@@ -211,8 +193,7 @@ export default async function ExhibitorEditPage({
 
 function decodeMessage(raw: string): string {
   if (raw === "name") return "El nombre es obligatorio.";
-  if (raw === "tier")
-    return "Sponsor tier debe ser platinum, gold o silver (o vacío).";
+
   try {
     return decodeURIComponent(raw);
   } catch {
@@ -293,7 +274,9 @@ function Toast({
     tone === "success"
       ? "border-franja-turquoise/40 bg-franja-turquoise/10 text-franja-turquoise"
       : "border-franja-pink/40 bg-franja-pink/10 text-franja-pink";
+
   const Icon = tone === "success" ? CheckCircle2 : AlertCircle;
+
   return (
     <div
       role={tone === "success" ? "status" : "alert"}
