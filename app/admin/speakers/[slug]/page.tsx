@@ -1,10 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, CheckCircle2, AlertCircle } from "lucide-react";
+import { ChevronLeft, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { Speaker } from "@/lib/types";
 import { PhotoUploader } from "./PhotoUploader";
-import { updateSpeakerAction } from "./actions";
+import {
+  addSpeakerSymposiumAction,
+  removeSpeakerSymposiumAction,
+  updateSpeakerAction,
+} from "./actions";
 
 const SELECT = `
   id, slug, full_name, photo_url, country, country_code,
@@ -12,6 +16,19 @@ const SELECT = `
   website, linkedin, instagram, is_featured,
   created_at, updated_at
 `;
+
+type SymposiumRow = Record<string, unknown> & {
+  id: string;
+  slug?: string | null;
+};
+
+type SpeakerSymposiumRow = {
+  speaker_id: string;
+  symposium_id: string;
+  role: string | null;
+  display_order: number | null;
+  symposiums: SymposiumRow | SymposiumRow[] | null;
+};
 
 export default async function SpeakerEditPage({
   params,
@@ -29,6 +46,7 @@ export default async function SpeakerEditPage({
   const { saved, created, error, photoError } = await searchParams;
 
   const supabase = createAdminClient();
+
   const { data, error: fetchErr } = await supabase
     .from("speakers")
     .select(SELECT)
@@ -37,11 +55,43 @@ export default async function SpeakerEditPage({
 
   if (fetchErr) throw fetchErr;
   if (!data) notFound();
+
   const speaker = data as Speaker;
 
-  // Server action bound with the slug — the form submits FormData and
-  // the action handles the redirect (saved=1 / error=...).
-  const action = updateSpeakerAction.bind(null, slug);
+  const { data: speakerSymposiumsData, error: speakerSymposiumsError } =
+    await supabase
+      .from("symposium_speakers")
+      .select(
+        `
+          speaker_id,
+          symposium_id,
+          role,
+          display_order,
+          symposiums (*)
+        `,
+      )
+      .eq("speaker_id", speaker.id)
+      .order("display_order", { ascending: true });
+
+  if (speakerSymposiumsError) throw speakerSymposiumsError;
+
+  const speakerSymposiums =
+    (speakerSymposiumsData ?? []) as SpeakerSymposiumRow[];
+
+  const { data: allSymposiumsData, error: allSymposiumsError } = await supabase
+    .from("symposiums")
+    .select("*")
+    .order("slug", { ascending: true });
+
+  if (allSymposiumsError) throw allSymposiumsError;
+
+  const allSymposiums = (allSymposiumsData ?? []) as SymposiumRow[];
+
+  // Server actions bound with the slug — the forms submit FormData and
+  // each action handles the redirect (saved=1 / error=...).
+  const updateAction = updateSpeakerAction.bind(null, slug);
+  const addSymposiumAction = addSpeakerSymposiumAction.bind(null, slug);
+  const removeSymposiumAction = removeSpeakerSymposiumAction.bind(null, slug);
 
   return (
     <div className="space-y-6">
@@ -67,7 +117,9 @@ export default async function SpeakerEditPage({
       )}
       {created === "1" && photoError && (
         <ErrorToast
-          message={`Conferencista creado pero falló la subida de la foto: ${decodeURIComponent(photoError)}. Probá de nuevo desde el cuadro de foto.`}
+          message={`Conferencista creado pero falló la subida de la foto: ${decodeURIComponent(
+            photoError,
+          )}. Probá de nuevo desde el cuadro de foto.`}
         />
       )}
       {saved === "1" && <SuccessToast />}
@@ -82,7 +134,7 @@ export default async function SpeakerEditPage({
           />
         </aside>
 
-        <form action={action} className="space-y-5">
+        <form action={updateAction} className="space-y-5">
           <FieldRow>
             <Field label="Nombre completo" name="full_name" required>
               <Input name="full_name" defaultValue={speaker.full_name} required />
@@ -163,12 +215,196 @@ export default async function SpeakerEditPage({
           </div>
         </form>
       </div>
+
+      <section className="rounded-xl border border-franja-border bg-franja-bg-elevated/60 p-4">
+        <div className="mb-4 flex flex-col gap-1">
+          <h2 className="text-base font-medium text-franja-text-primary">
+            Simposios asociados
+          </h2>
+          <p className="text-xs text-franja-text-muted">
+            Aquí puedes ver, agregar o quitar la participación de este conferencista
+            en simposios como conferencista, director o moderador.
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {speakerSymposiums.length === 0 ? (
+            <p className="rounded-md border border-dashed border-franja-border px-3 py-4 text-sm text-franja-text-muted">
+              Este conferencista todavía no está asociado a ningún simposio.
+            </p>
+          ) : (
+            <div className="overflow-hidden rounded-lg border border-franja-border">
+              <table className="w-full min-w-[680px] text-left text-sm">
+                <thead className="bg-franja-bg/80 text-xs uppercase tracking-wider text-franja-text-muted">
+                  <tr>
+                    <th className="px-3 py-2 font-medium">Simposio</th>
+                    <th className="px-3 py-2 font-medium">Rol</th>
+                    <th className="px-3 py-2 font-medium">Orden</th>
+                    <th className="px-3 py-2 text-right font-medium">Acción</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-franja-border">
+                  {speakerSymposiums.map((row) => {
+                    const symposium = firstRecord(row.symposiums);
+                    const symposiumLabel = getSymposiumLabel(symposium);
+                    const role = row.role ?? "speaker";
+
+                    return (
+                      <tr
+                        key={`${row.symposium_id}-${role}`}
+                        className="text-franja-text-primary"
+                      >
+                        <td className="px-3 py-3">
+                          <div className="font-medium">{symposiumLabel}</div>
+                          {symposium?.slug && (
+                            <div className="text-xs text-franja-text-muted">
+                              slug: {symposium.slug}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className="rounded-full border border-franja-border px-2 py-1 text-xs text-franja-text-muted">
+                            {roleLabel(role)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-franja-text-muted">
+                          {row.display_order ?? 0}
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          <form action={removeSymposiumAction}>
+                            <input
+                              type="hidden"
+                              name="speaker_id"
+                              value={speaker.id}
+                            />
+                            <input
+                              type="hidden"
+                              name="symposium_id"
+                              value={row.symposium_id}
+                            />
+                            <input type="hidden" name="role" value={role} />
+                            <button
+                              type="submit"
+                              className="inline-flex items-center gap-1 rounded-md border border-franja-pink/40 px-2.5 py-1.5 text-xs text-franja-pink transition hover:bg-franja-pink/10"
+                            >
+                              <Trash2 size={12} />
+                              Quitar
+                            </button>
+                          </form>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        <form
+          action={addSymposiumAction}
+          className="mt-5 grid grid-cols-1 gap-3 rounded-lg border border-franja-border bg-franja-bg/50 p-3 md:grid-cols-[1fr_160px_120px_auto]"
+        >
+          <input type="hidden" name="speaker_id" value={speaker.id} />
+
+          <Field label="Agregar a simposio" name="symposium_id">
+            <select
+              id="symposium_id"
+              name="symposium_id"
+              required
+              className="w-full rounded-md border border-franja-border bg-franja-bg/60 px-3 py-2 text-sm text-franja-text-primary outline-none transition focus:border-franja-turquoise"
+              defaultValue=""
+            >
+              <option value="" disabled>
+                Selecciona un simposio
+              </option>
+              {allSymposiums.map((symposium) => (
+                <option key={symposium.id} value={symposium.id}>
+                  {getSymposiumLabel(symposium)}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label="Rol" name="role">
+            <select
+              id="role"
+              name="role"
+              required
+              className="w-full rounded-md border border-franja-border bg-franja-bg/60 px-3 py-2 text-sm text-franja-text-primary outline-none transition focus:border-franja-turquoise"
+              defaultValue="speaker"
+            >
+              <option value="speaker">Conferencista</option>
+              <option value="director">Director</option>
+              <option value="moderator">Moderador</option>
+            </select>
+          </Field>
+
+          <Field label="Orden" name="display_order">
+            <Input
+              type="number"
+              name="display_order"
+              min={0}
+              step={1}
+              defaultValue={0}
+            />
+          </Field>
+
+          <div className="flex items-end">
+            <button
+              type="submit"
+              className="w-full rounded-md bg-franja-turquoise px-4 py-2 text-xs font-semibold text-franja-bg transition hover:bg-franja-turquoise-dark"
+            >
+              Agregar
+            </button>
+          </div>
+        </form>
+      </section>
     </div>
   );
 }
 
+function firstRecord(
+  value: SymposiumRow | SymposiumRow[] | null,
+): SymposiumRow | null {
+  if (!value) return null;
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value;
+}
+
+function getSymposiumLabel(symposium: SymposiumRow | null): string {
+  if (!symposium) return "Simposio sin nombre";
+
+  const possibleKeys = [
+    "official_name",
+    "title",
+    "name",
+    "symposium_name",
+    "display_name",
+    "slug",
+  ];
+
+  for (const key of possibleKeys) {
+    const value = symposium[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value;
+    }
+  }
+
+  return "Simposio sin nombre";
+}
+
+function roleLabel(role: string): string {
+  if (role === "director") return "Director";
+  if (role === "moderator") return "Moderador";
+  return "Conferencista";
+}
+
 function decodeMessage(raw: string): string {
   if (raw === "name") return "El nombre completo es obligatorio.";
+  if (raw === "missing-fields") return "Faltan campos obligatorios.";
+  if (raw === "invalid-role") return "El rol seleccionado no es válido.";
+
   try {
     return decodeURIComponent(raw);
   } catch {

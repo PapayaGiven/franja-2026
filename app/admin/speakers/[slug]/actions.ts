@@ -62,3 +62,122 @@ export async function updateSpeakerAction(
 
   redirect(`/admin/speakers/${slug}?saved=1`);
 }
+
+/**
+ * Add this speaker to an existing symposium with a specific role.
+ */
+export async function addSpeakerSymposiumAction(
+  speakerSlug: string,
+  formData: FormData,
+): Promise<void> {
+  await requireAdmin();
+
+  const supabase = createAdminClient();
+
+  const speakerId = formData.get("speaker_id");
+  const symposiumId = formData.get("symposium_id");
+  const role = formData.get("role");
+  const displayOrderRaw = formData.get("display_order");
+
+  if (
+    typeof speakerId !== "string" ||
+    typeof symposiumId !== "string" ||
+    typeof role !== "string" ||
+    speakerId.trim().length === 0 ||
+    symposiumId.trim().length === 0 ||
+    role.trim().length === 0
+  ) {
+    redirect(`/admin/speakers/${speakerSlug}?error=missing-fields`);
+  }
+
+  const validRoles = ["speaker", "director", "moderator"];
+
+  if (!validRoles.includes(role)) {
+    redirect(`/admin/speakers/${speakerSlug}?error=invalid-role`);
+  }
+
+  const displayOrder =
+    typeof displayOrderRaw === "string" && displayOrderRaw.trim().length > 0
+      ? Number(displayOrderRaw)
+      : 0;
+
+  const { error } = await supabase.from("symposium_speakers").upsert(
+    {
+      speaker_id: speakerId,
+      symposium_id: symposiumId,
+      role,
+      display_order: Number.isFinite(displayOrder) ? displayOrder : 0,
+    },
+    {
+      onConflict: "symposium_id,speaker_id,role",
+    },
+  );
+
+  if (error) {
+    redirect(
+      `/admin/speakers/${speakerSlug}?error=${encodeURIComponent(
+        error.message,
+      )}`,
+    );
+  }
+
+  revalidatePath("/admin/speakers");
+  revalidatePath(`/admin/speakers/${speakerSlug}`);
+  revalidatePath("/conferencistas");
+  revalidatePath(`/conferencistas/${speakerSlug}`);
+  revalidatePath("/agenda");
+  revalidatePath("/simposios");
+
+  redirect(`/admin/speakers/${speakerSlug}?saved=1`);
+}
+
+/**
+ * Remove a symposium relationship from this speaker.
+ */
+export async function removeSpeakerSymposiumAction(
+  speakerSlug: string,
+  formData: FormData,
+): Promise<void> {
+  await requireAdmin();
+
+  const supabase = createAdminClient();
+
+  const speakerId = formData.get("speaker_id");
+  const symposiumId = formData.get("symposium_id");
+  const role = formData.get("role");
+
+  if (
+    typeof speakerId !== "string" ||
+    typeof symposiumId !== "string" ||
+    typeof role !== "string" ||
+    speakerId.trim().length === 0 ||
+    symposiumId.trim().length === 0 ||
+    role.trim().length === 0
+  ) {
+    redirect(`/admin/speakers/${speakerSlug}?error=missing-fields`);
+  }
+
+  const { error } = await supabase
+    .from("symposium_speakers")
+    .delete()
+    .eq("speaker_id", speakerId)
+    .eq("symposium_id", symposiumId)
+    .eq("role", role);
+
+  if (error) {
+    redirect(
+      `/admin/speakers/${speakerSlug}?error=${encodeURIComponent(
+        error.message,
+      )}`,
+    );
+  }
+
+  revalidatePath("/admin/speakers");
+  revalidatePath(`/admin/speakers/${speakerSlug}`);
+  revalidatePath("/conferencistas");
+  revalidatePath(`/conferencistas/${speakerSlug}`);
+  revalidatePath("/agenda");
+  revalidatePath("/simposios");
+
+  redirect(`/admin/speakers/${speakerSlug}?saved=1`);
+}
